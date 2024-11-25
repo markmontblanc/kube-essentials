@@ -1,2 +1,34 @@
-# apiVersion: batch/v1
-# kind: CronJob
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: dev
+spec:
+  schedule: "0 0 * * *"  # Runs at midnight every day
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: postgres-backup
+            image: postgres:17.0
+            envFrom:
+            - secretRef:
+                name: backend-secrets  # Secrets for DB connection
+            command:
+            - /bin/bash
+            - -c
+            - |
+              export TIMESTAMP=$(date +"%Y%m%d%H%M%S") && \
+              export PGPASSWORD=$POSTGRES_PASSWORD && \
+              pg_dump -h $POSTGRES_SERVER -U $POSTGRES_USER -f /backups/backup-$TIMESTAMP.sql
+            volumeMounts:
+            - name: backup-volume
+              mountPath: /backups
+          nodeSelector:
+            kubernetes.io/hostname: node-basic  # Ensures job runs on node-basic
+          restartPolicy: OnFailure
+          volumes:
+          - name: backup-volume
+            persistentVolumeClaim:
+              claimName: postgres-backup  # PVC for backup storage

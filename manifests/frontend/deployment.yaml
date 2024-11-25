@@ -14,8 +14,37 @@ spec:
       labels:
         app: frontend
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-type
+                    operator: In
+                    values:
+                      - fast
+                      - basic
       containers:
         - name: frontend
           image: frontend:0.7.1
           ports:
             - containerPort: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15   # Initial delay before probe starts
+            periodSeconds: 20         # Interval between probes
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 7    # Initial delay before probe starts
+            periodSeconds: 10         # Interval between probes
+          resources:
+            requests:
+              cpu: "75m"
+              memory: "128Mi"
+            limits:
+              cpu: "150m"
+              memory: "256Mi"
