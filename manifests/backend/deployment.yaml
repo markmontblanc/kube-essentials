@@ -1,2 +1,41 @@
-# apiVersion: apps/v1
-# kind: Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      initContainers:
+        # First Init Container for waiting for PostgreSQL
+        - name: wait-for-postgresql
+          image: cgr.dev/chainguard/wait-for-it:latest
+          args: ["postgres-postgresql.postgres.svc.cluster.local:5432", "--timeout=60"]
+          envFrom:
+            - secretRef:
+                name: backend-secrets
+        # Second Init Container for running migrations
+        - name: run-migrations
+          image: backend:0.7.1  # Same image as backend container
+          command: ["/bin/sh", "-c", "python app/backend_pre_start.py && alembic upgrade head && python app/initial_data.py"]
+          envFrom:
+            - secretRef:
+                name: backend-secrets  # Use the same secret for environment variables
+      containers:
+      - name: backend
+        image: backend:0.7.1
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: backend-secrets
+
+
